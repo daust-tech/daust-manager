@@ -1,5 +1,11 @@
 import { Pencil, PlusCircle, Search, Trash } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type JSX,
+} from "react";
 import { Page } from "../components/layout/Page";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -83,7 +89,7 @@ export function Classes(): JSX.Element {
     try {
       const response = await apiService.get<Class[]>("/classes");
       setClasses(response.data);
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to fetch classes");
     }
   };
@@ -92,7 +98,7 @@ export function Classes(): JSX.Element {
     try {
       const response = await apiService.get<Course[]>("/courses");
       setCourses(response.data);
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to fetch courses");
     }
   };
@@ -101,7 +107,7 @@ export function Classes(): JSX.Element {
     try {
       const response = await apiService.get<Teacher[]>("/users?role=TEACHER");
       setTeachers(response.data);
-    } catch (err) {
+    } catch (_err) {
       setError("Failed to fetch teachers");
     }
   };

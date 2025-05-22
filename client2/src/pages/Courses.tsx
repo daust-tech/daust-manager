@@ -1,5 +1,12 @@
+import { coursesApi } from "@/services/apiService";
 import { Pencil, PlusCircle, Search, Trash } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type JSX,
+} from "react";
 import { Page } from "../components/layout/Page";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -21,7 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { apiService } from "../services/apiService";
 
 interface Course {
   id: string;
@@ -50,6 +56,8 @@ export function Courses(): JSX.Element {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCourses();
@@ -57,16 +65,44 @@ export function Courses(): JSX.Element {
 
   const fetchCourses = async (): Promise<void> => {
     try {
-      const response = await apiService.get<Course[]>("/courses");
+      const response = await coursesApi.getAll();
       setCourses(response.data);
     } catch (err) {
       setError("Failed to fetch courses");
     }
   };
 
-  const handleOpen = (): void => setOpen(true);
+  const handleOpen = (course?: Course): void => {
+    if (course) {
+      // Edit mode
+      console.log("Opening edit mode for course:", course);
+      setEditMode(true);
+      setEditingCourseId(course.id);
+      setFormData({
+        code: course.code,
+        name: course.name,
+        description: course.description || "",
+        credits: course.credits.toString(),
+      });
+    } else {
+      // Create mode
+      console.log("Opening create mode for course");
+      setEditMode(false);
+      setEditingCourseId(null);
+      setFormData({
+        code: "",
+        name: "",
+        description: "",
+        credits: "",
+      });
+    }
+    setOpen(true);
+  };
+
   const handleClose = (): void => {
     setOpen(false);
+    setEditMode(false);
+    setEditingCourseId(null);
     setFormData({
       code: "",
       name: "",
@@ -82,11 +118,27 @@ export function Courses(): JSX.Element {
     setIsLoading(true);
 
     try {
-      await apiService.post("/courses", formData);
+      if (editMode && editingCourseId) {
+        // Update existing course
+        console.log("Updating course:", editingCourseId, formData);
+        await coursesApi.update(editingCourseId, {
+          ...formData,
+          credits: parseInt(formData.credits, 10),
+        });
+      } else {
+        // Create new course
+        console.log("Creating new course:", formData);
+        await coursesApi.create({
+          ...formData,
+          credits: parseInt(formData.credits, 10),
+        });
+      }
       handleClose();
       fetchCourses();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create course");
+      const action = editMode ? "update" : "create";
+      console.error(`Failed to ${action} course:`, err);
+      setError(err.response?.data?.message || `Failed to ${action} course`);
     } finally {
       setIsLoading(false);
     }
@@ -97,6 +149,19 @@ export function Courses(): JSX.Element {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handleDelete = async (courseId: string): Promise<void> => {
+    if (confirm("Are you sure you want to delete this course?")) {
+      try {
+        console.log("Deleting course:", courseId);
+        await coursesApi.delete(courseId);
+        fetchCourses();
+      } catch (err: any) {
+        console.error("Failed to delete course:", err);
+        setError(err.response?.data?.message || "Failed to delete course");
+      }
+    }
   };
 
   const filteredCourses = courses.filter(
@@ -130,7 +195,7 @@ export function Courses(): JSX.Element {
                 className="pl-8"
               />
             </div>
-            <Button onClick={handleOpen}>
+            <Button onClick={() => handleOpen()}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Course
             </Button>
@@ -156,13 +221,18 @@ export function Courses(): JSX.Element {
                   </TableCell>
                   <TableCell>{course.credits}</TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="icon">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpen(course)}
+                    >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="text-red-500"
+                      onClick={() => handleDelete(course.id)}
                     >
                       <Trash className="h-4 w-4" />
                     </Button>
@@ -187,38 +257,33 @@ export function Courses(): JSX.Element {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add New Course</DialogTitle>
+            <DialogTitle>
+              {editMode ? "Edit Course" : "Add New Course"}
+            </DialogTitle>
             <DialogDescription>
-              Create a new course for the school curriculum.
+              {editMode
+                ? "Update the details for this course."
+                : "Create a new course for the school curriculum."}
             </DialogDescription>
           </DialogHeader>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="code">Course Code</Label>
-                  <Input
-                    id="code"
-                    name="code"
-                    value={formData.code}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="credits">Credits</Label>
-                  <Input
-                    id="credits"
-                    name="credits"
-                    type="number"
-                    value={formData.credits}
-                    onChange={handleChange}
-                    min={1}
-                    required
-                  />
-                </div>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="code">Course Code</Label>
+                <Input
+                  id="code"
+                  name="code"
+                  value={formData.code}
+                  onChange={handleChange}
+                  required
+                />
               </div>
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="name">Course Name</Label>
                 <Input
                   id="name"
@@ -228,12 +293,23 @@ export function Courses(): JSX.Element {
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="description">Description</Label>
                 <Input
                   id="description"
                   name="description"
                   value={formData.description}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="credits">Credit Hours</Label>
+                <Input
+                  id="credits"
+                  name="credits"
+                  type="number"
+                  min="1"
+                  value={formData.credits}
                   onChange={handleChange}
                   required
                 />
@@ -244,7 +320,13 @@ export function Courses(): JSX.Element {
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Adding..." : "Add Course"}
+                {isLoading
+                  ? editMode
+                    ? "Saving..."
+                    : "Adding..."
+                  : editMode
+                  ? "Save Changes"
+                  : "Add Course"}
               </Button>
             </DialogFooter>
           </form>

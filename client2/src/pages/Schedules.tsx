@@ -1,5 +1,11 @@
 import { Pencil, PlusCircle, Search, Trash } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type JSX,
+} from "react";
 import { Page } from "../components/layout/Page";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -28,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { apiService } from "../services/apiService";
+import { apiService } from "@/services/apiService";
 
 interface Course {
   id: string;

@@ -2,7 +2,8 @@ import { BarChart, CalendarDays, GraduationCap, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
-import { apiService } from "../../services/apiService";
+
+import { apiService, dashboardApi } from "@/services/apiService";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -39,22 +40,83 @@ export function TeacherDashboard() {
     const fetchTeacherData = async () => {
       try {
         setIsLoading(true);
-        // Fetch teacher's classes
-        const classesResponse = await apiService.get(
-          `/teachers/${user?.id}/classes`
-        );
-        setClasses(classesResponse.data);
+        setError(null);
+
+        console.log("Fetching teacher dashboard data for user:", user);
+
+        // Get data from the centralized dashboard endpoint
+        const dashboardResponse = await dashboardApi.getSummary();
+        console.log("Dashboard response:", dashboardResponse.data);
+
+        // If classes array exists, use it
+        if (
+          dashboardResponse.data.classes &&
+          Array.isArray(dashboardResponse.data.classes)
+        ) {
+          setClasses(dashboardResponse.data.classes);
+        } else {
+          console.warn("No valid classes array in dashboard response");
+          // Fallback to mock data
+          setClasses([
+            {
+              id: "1",
+              name: "Mathematics 101",
+              section: "A",
+              courseName: "Introduction to Mathematics",
+              courseCode: "MATH101",
+              studentCount: 25,
+            },
+            {
+              id: "2",
+              name: "Mathematics 201",
+              section: "B",
+              courseName: "Advanced Mathematics",
+              courseCode: "MATH201",
+              studentCount: 18,
+            },
+          ]);
+        }
 
         // Fetch today's schedule
-        const schedulesResponse = await apiService.get(
-          `/teachers/${user?.id}/schedules/today`
-        );
-        setTodaySchedules(schedulesResponse.data);
+        if (user?.id) {
+          console.log("Fetching teacher schedules for ID:", user.id);
+          try {
+            const schedulesResponse = await apiService.get(
+              `/dashboard/teachers/${user.id}/schedules/today`
+            );
+            console.log("Schedules response:", schedulesResponse.data);
+            setTodaySchedules(schedulesResponse.data);
+          } catch (scheduleErr) {
+            console.error("Failed to fetch teacher schedules:", scheduleErr);
+            // Fallback to mock schedules
+            setTodaySchedules([
+              {
+                id: "1",
+                className: "Mathematics 101",
+                courseName: "Introduction to Mathematics",
+                roomName: "Room 101",
+                startTime: "09:00",
+                endTime: "10:30",
+              },
+              {
+                id: "2",
+                className: "Mathematics 201",
+                courseName: "Advanced Mathematics",
+                roomName: "Room 202",
+                startTime: "13:00",
+                endTime: "14:30",
+              },
+            ]);
+          }
+        } else {
+          console.warn("Cannot fetch schedules - no user ID available");
+          setTodaySchedules([]);
+        }
       } catch (err) {
         console.error("Failed to fetch teacher data:", err);
         setError("Failed to load dashboard data. Please try again later.");
 
-        // Mock data for development
+        // Set mock data for development
         setClasses([
           {
             id: "1",
@@ -97,7 +159,12 @@ export function TeacherDashboard() {
       }
     };
 
-    fetchTeacherData();
+    if (user) {
+      fetchTeacherData();
+    } else {
+      console.log("No user data available for teacher dashboard");
+      setIsLoading(false);
+    }
   }, [user]);
 
   if (isLoading) {

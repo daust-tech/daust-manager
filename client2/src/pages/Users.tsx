@@ -1,5 +1,11 @@
 import { Pencil, PlusCircle, Search, Trash } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type JSX,
+} from "react";
 import { Page } from "../components/layout/Page";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -28,14 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { apiService } from "../services/apiService";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import { usersApi, type User } from "@/services/apiService";
 
 interface FormData {
   name: string;
@@ -63,7 +62,7 @@ export function Users(): JSX.Element {
 
   const fetchUsers = async (): Promise<void> => {
     try {
-      const response = await apiService.get<User[]>("/users");
+      const response = await usersApi.getAll();
       setUsers(response.data);
     } catch (err) {
       setError("Failed to fetch users");
@@ -88,7 +87,7 @@ export function Users(): JSX.Element {
     setIsLoading(true);
 
     try {
-      await apiService.post("/users", formData);
+      await usersApi.create(formData);
       handleClose();
       fetchUsers(); // Refresh users list after adding
     } catch (err: any) {
@@ -198,12 +197,17 @@ export function Users(): JSX.Element {
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
             <DialogDescription>
-              Create a new user account with the appropriate role.
+              Create a new user account with appropriate role.
             </DialogDescription>
           </DialogHeader>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
                   id="name"
@@ -213,7 +217,7 @@ export function Users(): JSX.Element {
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
@@ -224,7 +228,7 @@ export function Users(): JSX.Element {
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
@@ -235,10 +239,14 @@ export function Users(): JSX.Element {
                   required
                 />
               </div>
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={formData.role} onValueChange={handleRoleChange}>
-                  <SelectTrigger>
+                <Select
+                  value={formData.role}
+                  onValueChange={handleRoleChange}
+                  required
+                >
+                  <SelectTrigger id="role">
                     <SelectValue placeholder="Select a role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -249,12 +257,17 @@ export function Users(): JSX.Element {
                 </Select>
               </div>
             </div>
-            <DialogFooter className="mt-6">
-              <Button variant="outline" type="button" onClick={handleClose}>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isLoading}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Adding..." : "Add User"}
+                {isLoading ? "Creating..." : "Create User"}
               </Button>
             </DialogFooter>
           </form>

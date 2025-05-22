@@ -1,13 +1,8 @@
-import React, {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { apiService } from "../services/apiService";
+import axios from "axios";
+import type { ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-type Role = "ADMIN" | "TEACHER" | "STUDENT";
+export type Role = "ADMIN" | "TEACHER" | "STUDENT";
 
 export interface User {
   id: string;
@@ -25,6 +20,23 @@ interface AuthContextType {
   logout: () => void;
 }
 
+// Create an axios instance for auth operations
+const authAxios = axios.create({
+  baseURL: "/api",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add auth token to requests
+authAxios.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -38,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       if (token) {
         try {
-          const response = await apiService.get("/auth/me");
-          setUser(response.data);
+          const response = await authAxios.get("/auth/me");
+          setUser(response.data as User);
         } catch (error) {
           console.error("Failed to fetch user data:", error);
           localStorage.removeItem("token");
@@ -55,14 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      const response = await apiService.post("/auth/login", {
+      const response = await authAxios.post("/auth/login", {
         email,
         password,
       });
       const { token, user } = response.data;
       localStorage.setItem("token", token);
       setToken(token);
-      setUser(user);
+      setUser(user as User);
     } catch (error) {
       console.error("Login failed:", error);
       throw error;

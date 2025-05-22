@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Mail, Phone, Save } from "lucide-react";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { useState, type ChangeEvent, type FormEvent, type JSX } from "react";
 import { Page } from "../components/layout/Page";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";

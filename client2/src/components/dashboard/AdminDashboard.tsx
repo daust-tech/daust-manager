@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiService } from "../../services/apiService";
+
+import { dashboardApi } from "@/services/apiService";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Separator } from "../ui/separator";
@@ -31,13 +32,14 @@ export function AdminDashboard() {
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
+        setError(null);
         // Call API to get dashboard summary data
-        const response = await apiService.get("/dashboard/admin-summary");
+        const response = await dashboardApi.getSummary();
         setStats(response.data);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
         setError("Failed to load dashboard data. Please try again later.");
-        // For demo purposes, set mock data if API fails
+        // Setting mock data but still showing the error message
         setStats({
           users: 45,
           courses: 24,

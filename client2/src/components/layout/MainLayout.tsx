@@ -11,7 +11,7 @@ import {
   User,
   Users,
 } from "lucide-react";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, type JSX } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
 import { Avatar, AvatarFallback } from "../ui/avatar";

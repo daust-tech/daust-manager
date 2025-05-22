@@ -7,7 +7,8 @@ import {
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/auth";
-import { apiService } from "../../services/apiService";
+
+import { apiService, dashboardApi } from "@/services/apiService";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -47,22 +48,97 @@ export function StudentDashboard() {
     const fetchStudentData = async () => {
       try {
         setIsLoading(true);
-        // Fetch student's enrolled classes
-        const classesResponse = await apiService.get(
-          `/students/${user?.id}/classes`
-        );
-        setEnrolledClasses(classesResponse.data);
+        setError(null);
+
+        console.log("Fetching student dashboard data for user:", user);
+
+        // Get data from the centralized dashboard endpoint
+        const dashboardResponse = await dashboardApi.getSummary();
+        console.log("Dashboard response:", dashboardResponse.data);
+
+        // If classes array exists, use it
+        if (
+          dashboardResponse.data.classes &&
+          Array.isArray(dashboardResponse.data.classes)
+        ) {
+          setEnrolledClasses(dashboardResponse.data.classes);
+        } else {
+          console.warn("No valid classes array in dashboard response");
+          // Fallback to mock data
+          setEnrolledClasses([
+            {
+              id: "1",
+              name: "Mathematics 101",
+              section: "A",
+              courseName: "Introduction to Mathematics",
+              courseCode: "MATH101",
+              teacherName: "Dr. John Doe",
+              grade: "A",
+              progress: 85,
+            },
+            {
+              id: "2",
+              name: "Physics 101",
+              section: "B",
+              courseName: "Introduction to Physics",
+              courseCode: "PHYS101",
+              teacherName: "Dr. Jane Smith",
+              grade: null,
+              progress: 42,
+            },
+            {
+              id: "3",
+              name: "Computer Science 101",
+              section: "A",
+              courseName: "Introduction to Programming",
+              courseCode: "CS101",
+              teacherName: "Prof. Bob Johnson",
+              grade: "B+",
+              progress: 68,
+            },
+          ]);
+        }
 
         // Fetch today's schedule
-        const schedulesResponse = await apiService.get(
-          `/students/${user?.id}/schedules/today`
-        );
-        setTodaySchedules(schedulesResponse.data);
+        if (user?.id) {
+          console.log("Fetching student schedules for ID:", user.id);
+          try {
+            const schedulesResponse = await apiService.get(
+              `/dashboard/students/${user.id}/schedules/today`
+            );
+            console.log("Schedules response:", schedulesResponse.data);
+            setTodaySchedules(schedulesResponse.data);
+          } catch (scheduleErr) {
+            console.error("Failed to fetch student schedules:", scheduleErr);
+            // Fallback to mock schedules
+            setTodaySchedules([
+              {
+                id: "1",
+                className: "Mathematics 101",
+                courseName: "Introduction to Mathematics",
+                roomName: "Room 101",
+                startTime: "09:00",
+                endTime: "10:30",
+              },
+              {
+                id: "2",
+                className: "Physics 101",
+                courseName: "Introduction to Physics",
+                roomName: "Room 202",
+                startTime: "13:00",
+                endTime: "14:30",
+              },
+            ]);
+          }
+        } else {
+          console.warn("Cannot fetch schedules - no user ID available");
+          setTodaySchedules([]);
+        }
       } catch (err) {
         console.error("Failed to fetch student data:", err);
         setError("Failed to load dashboard data. Please try again later.");
 
-        // Mock data for development
+        // Set mock data for development
         setEnrolledClasses([
           {
             id: "1",
@@ -119,7 +195,12 @@ export function StudentDashboard() {
       }
     };
 
-    fetchStudentData();
+    if (user) {
+      fetchStudentData();
+    } else {
+      console.log("No user data available for student dashboard");
+      setIsLoading(false);
+    }
   }, [user]);
 
   if (isLoading) {

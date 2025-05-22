@@ -1,5 +1,5 @@
 import { Save } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { useState, type FormEvent, type JSX } from "react";
 import { Page } from "../components/layout/Page";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";

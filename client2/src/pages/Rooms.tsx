@@ -1,5 +1,12 @@
+import { roomsApi } from "@/services/apiService";
 import { Pencil, PlusCircle, Search, Trash } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type JSX,
+} from "react";
 import { Page } from "../components/layout/Page";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -28,7 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "../components/ui/table";
-import { apiService } from "../services/apiService";
 
 interface Room {
   id: string;
@@ -60,6 +66,8 @@ export function Rooms(): JSX.Element {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [editMode, setEditMode] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRooms();
@@ -67,16 +75,46 @@ export function Rooms(): JSX.Element {
 
   const fetchRooms = async (): Promise<void> => {
     try {
-      const response = await apiService.get<Room[]>("/rooms");
+      const response = await roomsApi.getAll();
       setRooms(response.data);
     } catch (err) {
       setError("Failed to fetch rooms");
     }
   };
 
-  const handleOpen = (): void => setOpen(true);
+  const handleOpen = (room?: Room): void => {
+    if (room) {
+      // Edit mode
+      console.log("Opening edit mode for room:", room);
+      setEditMode(true);
+      setEditingRoomId(room.id);
+      setFormData({
+        name: room.name,
+        capacity: room.capacity.toString(),
+        type: room.type || "CLASSROOM",
+        floor: room.floor || "",
+        building: room.building,
+      });
+    } else {
+      // Create mode
+      console.log("Opening create mode for room");
+      setEditMode(false);
+      setEditingRoomId(null);
+      setFormData({
+        name: "",
+        capacity: "",
+        type: "CLASSROOM",
+        floor: "",
+        building: "",
+      });
+    }
+    setOpen(true);
+  };
+
   const handleClose = (): void => {
     setOpen(false);
+    setEditMode(false);
+    setEditingRoomId(null);
     setFormData({
       name: "",
       capacity: "",
@@ -93,11 +131,27 @@ export function Rooms(): JSX.Element {
     setIsLoading(true);
 
     try {
-      await apiService.post("/rooms", formData);
+      if (editMode && editingRoomId) {
+        // Update existing room
+        console.log("Updating room:", editingRoomId, formData);
+        await roomsApi.update(editingRoomId, {
+          ...formData,
+          capacity: parseInt(formData.capacity, 10),
+        });
+      } else {
+        // Create new room
+        console.log("Creating new room:", formData);
+        await roomsApi.create({
+          ...formData,
+          capacity: parseInt(formData.capacity, 10),
+        });
+      }
       handleClose();
       fetchRooms();
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create room");
+      const action = editMode ? "update" : "create";
+      console.error(`Failed to ${action} room:`, err);
+      setError(err.response?.data?.message || `Failed to ${action} room`);
     } finally {
       setIsLoading(false);
     }
@@ -115,6 +169,19 @@ export function Rooms(): JSX.Element {
       ...formData,
       type: value,
     });
+  };
+
+  const handleDelete = async (roomId: string): Promise<void> => {
+    if (confirm("Are you sure you want to delete this room?")) {
+      try {
+        console.log("Deleting room:", roomId);
+        await roomsApi.delete(roomId);
+        fetchRooms();
+      } catch (err: any) {
+        console.error("Failed to delete room:", err);
+        setError(err.response?.data?.message || "Failed to delete room");
+      }
+    }
   };
 
   const filteredRooms = rooms.filter(
@@ -148,7 +215,7 @@ export function Rooms(): JSX.Element {
                 className="pl-8"
               />
             </div>
-            <Button onClick={handleOpen}>
+            <Button onClick={() => handleOpen()}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Room
             </Button>
@@ -174,13 +241,18 @@ export function Rooms(): JSX.Element {
                   <TableCell>{room.type}</TableCell>
                   <TableCell>{room.capacity}</TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button variant="ghost" size="icon">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleOpen(room)}
+                    >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="text-red-500"
+                      onClick={() => handleDelete(room.id)}
                     >
                       <Trash className="h-4 w-4" />
                     </Button>
@@ -205,15 +277,22 @@ export function Rooms(): JSX.Element {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add New Room</DialogTitle>
+            <DialogTitle>{editMode ? "Edit Room" : "Add New Room"}</DialogTitle>
             <DialogDescription>
-              Create a new room for classes and events.
+              {editMode
+                ? "Update the details for this room."
+                : "Create a new room for classes and activities."}
             </DialogDescription>
           </DialogHeader>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Room Name</Label>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Room Name/Number</Label>
                 <Input
                   id="name"
                   name="name"
@@ -222,8 +301,7 @@ export function Rooms(): JSX.Element {
                   required
                 />
               </div>
-
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="building">Building</Label>
                 <Input
                   id="building"
@@ -233,8 +311,7 @@ export function Rooms(): JSX.Element {
                   required
                 />
               </div>
-
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="floor">Floor</Label>
                 <Input
                   id="floor"
@@ -244,31 +321,34 @@ export function Rooms(): JSX.Element {
                   required
                 />
               </div>
-
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="type">Room Type</Label>
-                <Select value={formData.type} onValueChange={handleTypeChange}>
-                  <SelectTrigger>
+                <Select
+                  value={formData.type}
+                  onValueChange={handleTypeChange}
+                  required
+                >
+                  <SelectTrigger id="type">
                     <SelectValue placeholder="Select room type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="CLASSROOM">Classroom</SelectItem>
-                    <SelectItem value="LABORATORY">Laboratory</SelectItem>
-                    <SelectItem value="CONFERENCE">Conference Room</SelectItem>
+                    <SelectItem value="LAB">Laboratory</SelectItem>
                     <SelectItem value="OFFICE">Office</SelectItem>
+                    <SelectItem value="CONFERENCE">Conference Room</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-
-              <div className="space-y-2">
+              <div className="grid gap-2">
                 <Label htmlFor="capacity">Capacity</Label>
                 <Input
                   id="capacity"
                   name="capacity"
                   type="number"
+                  min="1"
                   value={formData.capacity}
                   onChange={handleChange}
-                  min={1}
                   required
                 />
               </div>
@@ -278,7 +358,13 @@ export function Rooms(): JSX.Element {
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Adding..." : "Add Room"}
+                {isLoading
+                  ? editMode
+                    ? "Saving..."
+                    : "Adding..."
+                  : editMode
+                  ? "Save Changes"
+                  : "Add Room"}
               </Button>
             </DialogFooter>
           </form>
