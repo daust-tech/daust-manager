@@ -36,6 +36,17 @@ async function updateRoom(req, res) {
     const { id } = req.params;
     const { name, building, floor, type, capacity } = req.body;
 
+    console.log("Updating room:", id, req.body);
+
+    // Validate that the room exists
+    const existingRoom = await prisma.room.findUnique({
+      where: { id },
+    });
+
+    if (!existingRoom) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
     const updatedRoom = await prisma.room.update({
       where: { id },
       data: {
@@ -47,6 +58,7 @@ async function updateRoom(req, res) {
       },
     });
 
+    console.log("Room updated successfully:", updatedRoom);
     res.json(updatedRoom);
   } catch (error) {
     console.error("Error updating room:", error);

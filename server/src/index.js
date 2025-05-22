@@ -6,6 +6,13 @@ const dotenv = require("dotenv");
 // Load environment variables
 dotenv.config();
 
+// Validate essential environment variables
+if (!process.env.JWT_SECRET) {
+  console.error("JWT_SECRET is not defined in environment variables");
+  console.log("Setting a temporary JWT_SECRET for development");
+  process.env.JWT_SECRET = "temporary_secret_for_development_only";
+}
+
 // Import routes
 const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");

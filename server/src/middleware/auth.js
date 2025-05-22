@@ -16,7 +16,13 @@ function authenticate(req, res, next) {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+
+    // Update user object with properly named properties
+    req.user = {
+      id: decoded.userId, // Use decoded.userId as req.user.id
+      role: decoded.role,
+    };
+
     next();
   } catch (error) {
     console.error("Authentication error:", error);
